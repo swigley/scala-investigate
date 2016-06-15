@@ -79,7 +79,6 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
         case outMap: Map[String,Map[String,Any]] =>
           //TODO Probably want to test for specific values
           outMap("infosec@cisco.com").keySet.size should be > 1
-        case None => println("test2")
       }
 
     }
@@ -88,8 +87,11 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
   describe("domainSecurity") {
     it("returns correct security categories when queried by domain.") {
       val testDomSec = inv.domainsecurity(goodDomainName)
-      print(testDomSec)
-      //TODO
+      testDomSec match {
+        case outMap: Map[String,Any] =>
+          outMap.keySet.size should be > 1
+      }
+
     }
 
     it("fails when invalid domain name is input.") {
@@ -103,6 +105,7 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
 
   describe("related") {
     it("returns related domains when queried by domain.") {
+
       true
       //TODO
     }
