@@ -105,9 +105,12 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
 
   describe("related") {
     it("returns related domains when queried by domain.") {
-
-      true
-      //TODO
+      val related = inv.related(goodDomainName)
+      related match {
+        case related2: Map[String,Any] => {
+          related2("tb1").asInstanceOf[List[Any]].size should be > 1
+        }
+      }
     }
 
     it("fails when invalid domain name is input.") {
