@@ -50,6 +50,7 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
     }
   }
 
+
   private def getParseDomains(d: List[String], uri: String):  Option[Any] = postParse(uri,d)
   private def getParseDomain(d: String, uri: String):         Option[Any] = getParseObj(d,uri,domainRegex)
   private def getParseIp(ip: String, uri: String):            Option[Any] = getParseObj(ip,uri,ipRegex)
