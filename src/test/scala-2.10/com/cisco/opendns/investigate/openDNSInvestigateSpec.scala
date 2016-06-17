@@ -22,6 +22,14 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
           domain("registrantEmail") should equal ("infosec@cisco.com")
 
       }
+
+      val tco = inv.getDomain("t.co")
+      tco match {
+        case domain: Map[String,String] =>
+          print(domain)
+        case None => None
+      }
+
     }
 
     it("fails when invalid domain name is input.") {
@@ -37,6 +45,16 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
 
     it("returns correct category IDs when queried by domain.") {
       val cisco = inv.domainCategorization(goodDomainName)
+      cisco match {
+        case category: Map[String,Map[String,List[String]]] =>
+          val cc = category("cisco.com")("content_categories")
+          cc should contain ("25")
+          cc should contain ("32")
+      }
+    }
+
+    it("returns correct category IDs when queried by a list of domains.") {
+      val cisco = inv.domainCategorization(List("altavista.com","yahoo.com","google.com","cisco.com"))
       cisco match {
         case category: Map[String,Map[String,List[String]]] =>
           val cc = category("cisco.com")("content_categories")
@@ -62,6 +80,7 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
           cooccourances("pfs2").length should be > 0
       }
     }
+
 
     it("fails when invalid domain name is input.") {
       val error_domain = inv.cooccourances(badDomainName)
@@ -107,9 +126,8 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
     it("returns related domains when queried by domain.") {
       val related = inv.related(goodDomainName)
       related match {
-        case related2: Map[String,Any] => {
+        case related2: Map[String,Any] =>
           related2("tb1").asInstanceOf[List[Any]].size should be > 1
-        }
       }
     }
 
