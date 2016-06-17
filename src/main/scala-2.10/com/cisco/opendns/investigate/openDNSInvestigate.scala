@@ -32,14 +32,17 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
       .header("Authorization", authHeader)
       .header("Content-Type", "application/json")
       .header("Charset", "UTF-8")
-    if(method=="POST")  request = request.postData(data)
+    if(method=="POST")  {
+      print(data)
+      request = request.postData(data)
+    }
     if(proxyPort!=0)    request = request.proxy(proxyHost,proxyPort)
 
     JSON.parseFull(request.asString.body)
   }
 
   private def getParse(uri: String):                      Option[Any] = reqParse(uri,"GET")
-  private def postParse(uri: String,data: List[String]):  Option[Any] = reqParse(uri,"POST", "[" + data.mkString(",") + "]")
+  private def postParse(uri: String,data: List[String]):  Option[Any] = reqParse(uri,"POST", "[\"" + data.mkString("\",\"") + "\"]")
 
   private def getParseObj(obj: String,uri: String, objregex: scala.util.matching.Regex): Option[Any] = {
     val validObj = objregex.findFirstIn(obj)
@@ -57,7 +60,7 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
   def getDomain(d: String)            = getParseDomain(d,uriMap("whois")).getOrElse(None)
   def domainCategorization(d: Any)    = d match {
     case v: String        => getParseDomain(v, uriMap("categorization")).getOrElse(None)
-    case g: List[String]  => getParseDomains(g,uriMap("categorization")).getOrElse(None)
+    case g: List[String]  => getParseDomains(g,uriMap("categorization").format(baseUri,"")).getOrElse(None)
      }
   def cooccourances(d: String)        = getParseDomain(d,uriMap("cooccourances")).getOrElse(None)
   def domainWhoisEmails(em: String)   = getParseEmail(em,uriMap("whoisEmails")).getOrElse(None)
