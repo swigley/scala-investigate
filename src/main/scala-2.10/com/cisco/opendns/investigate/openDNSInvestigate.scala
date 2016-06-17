@@ -11,6 +11,7 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
   private val emailRegex  = "[a-zA-Z0-9_.+-]+@[a-zA-Z]+[a-zA-Z0-9-]+\\.[a-z]+{2,}".r
   private val ipRegex     = "([0-9]+\\.){3,}[0-9]+".r
 
+  private def listToJson(strList: List[String]): String = "[\"" + strList.mkString("\",\"") + "\"]"
   private val uriMap = Map[String,String](
     "whois"           -> "%s/whois/%s.json",
     "categorization"  -> "%s/domains/categorization/%s",
@@ -32,17 +33,14 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
       .header("Authorization", authHeader)
       .header("Content-Type", "application/json")
       .header("Charset", "UTF-8")
-    if(method=="POST")  {
-      print(data)
-      request = request.postData(data)
-    }
-    if(proxyPort!=0)    request = request.proxy(proxyHost,proxyPort)
+    if(method=="POST") request = request.postData(data)
+    if(proxyPort!=0)   request = request.proxy(proxyHost,proxyPort)
 
     JSON.parseFull(request.asString.body)
   }
 
   private def getParse(uri: String):                      Option[Any] = reqParse(uri,"GET")
-  private def postParse(uri: String,data: List[String]):  Option[Any] = reqParse(uri,"POST", "[\"" + data.mkString("\",\"") + "\"]")
+  private def postParse(uri: String,data: List[String]):  Option[Any] = reqParse(uri,"POST", listToJson(data))
 
   private def getParseObj(obj: String,uri: String, objregex: scala.util.matching.Regex): Option[Any] = {
     val validObj = objregex.findFirstIn(obj)
