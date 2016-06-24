@@ -2,16 +2,23 @@ package com.cisco.opendns.investigate
 
 import scala.util.parsing.json._
 import scalaj.http._
+import scala.util.{Failure, Success, Try}
+
+case class RequestParseException(message: String) extends Exception(message)
+case class DomainNameFormatException(message: String) extends Exception(message)
+case class IPAddressFormatException(message: String) extends Exception(message)
+case class EmailAddressFormatException(message: String) extends Exception(message)
 
 class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) extends Serializable {
 
   private val baseUri     = "https://investigate.api.opendns.com"
   private val authHeader  = "Bearer " + authKey
-  private val domainRegex = "[a-zA-Z]+[a-zA-Z0-9-]+\\.[a-z]+{2,}".r
+  private val domainRegex = "[a-zA-Z]*[a-zA-Z0-9-]+\\.[a-z]+{2,}".r
   private val emailRegex  = "[a-zA-Z0-9_.+-]+@[a-zA-Z]+[a-zA-Z0-9-]+\\.[a-z]+{2,}".r
   private val ipRegex     = "([0-9]+\\.){3,}[0-9]+".r
 
   private def listToJson(strList: List[String]): String = "[\"" + strList.mkString("\",\"") + "\"]"
+
   private val uriMap = Map[String,String](
     "whois"           -> "%s/whois/%s.json",
     "categorization"  -> "%s/domains/categorization/%s",
@@ -26,8 +33,7 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
     "ipRRHistory"     -> "%s/dnsdb/ip/%s",
     "domainRRHistory" -> "%s/dnsdb/name/$domainName/$queryType.json"
   )
-
-  private def reqParse(uri: String,method: String="GET",data: String=""): Option[Any] = {
+  private def reqParse(uri: String,method: String="GET",data: String=""): Try[Option[Any]] = {
     var request: HttpRequest = Http(uri)
       .method(method)
       .header("Authorization", authHeader)
@@ -36,40 +42,84 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
     if(method=="POST") request = request.postData(data)
     if(proxyPort!=0)   request = request.proxy(proxyHost,proxyPort)
 
-    JSON.parseFull(request.asString.body)
+    Try(JSON.parseFull(request.asString.body))
   }
 
-  private def getParse(uri: String):                      Option[Any] = reqParse(uri,"GET")
-  private def postParse(uri: String,data: List[String]):  Option[Any] = reqParse(uri,"POST", listToJson(data))
-
-  private def getParseObj(obj: String,uri: String, objregex: scala.util.matching.Regex): Option[Any] = {
-    val validObj = objregex.findFirstIn(obj)
-    validObj match {
-      case Some(testObj: String) => getParse(uri.format(baseUri,testObj))
-      case None => None
+  private def getParse(uri: String): Any = {
+    reqParse(uri,"GET") recoverWith  {
+      case e: Exception =>
+        throw RequestParseException("Exception getting or parsing HTTP Response. ")
     }
   }
 
+  private def postParse(uri: String,data: List[String]):  Any = {
+    reqParse(uri, "POST", listToJson(data)) recoverWith {
+      case e: Exception =>
+        throw RequestParseException("Exception getting or parsing HTTP Response. ")
+    }
+  }
 
-  private def getParseDomains(d: List[String], uri: String):  Option[Any] = postParse(uri,d)
-  private def getParseDomain(d: String, uri: String):         Option[Any] = getParseObj(d,uri,domainRegex)
-  private def getParseIp(ip: String, uri: String):            Option[Any] = getParseObj(ip,uri,ipRegex)
-  private def getParseEmail(em: String, uri: String):         Option[Any] = getParseObj(em,uri,emailRegex)
+  private def raiseDomainNameFormatException(message: String) =
+    throw new DomainNameFormatException(message)
 
-  def getDomain(d: String)            = getParseDomain(d,uriMap("whois")).getOrElse(None)
-  def domainCategorization(d: Any)    = d match {
-    case v: String        => getParseDomain(v, uriMap("categorization")).getOrElse(None)
-    case g: List[String]  => getParseDomains(g,uriMap("categorization").format(baseUri,"")).getOrElse(None)
-     }
-  def cooccourances(d: String)        = getParseDomain(d,uriMap("cooccourances")).getOrElse(None)
-  def domainWhoisEmails(em: String)   = getParseEmail(em,uriMap("whoisEmails")).getOrElse(None)
-  def domainsecurity(d: String)       = getParseDomain(d,uriMap("domainSecurity")).getOrElse(None)
-  def related(d: String)              = getParseDomain(d,uriMap("related")).getOrElse(None)
-  def domainTags(d: String)           = getParseDomain(d,uriMap("domainTags")).getOrElse(None)
-  def latest_domains(ip: String)      = getParseIp(ip,uriMap("latestDomains")).getOrElse(None)
-  def ns_whois(ns: String)            = getParse(baseUri + "/whois/nameservers/" + ns).getOrElse("Not Found")
-  def search(query: String)           = getParse(baseUri + "/search/" + query).getOrElse("Not Found")
+  private def raiseEmailAddressFormatException(message: String) =
+    throw new EmailAddressFormatException(message)
+
+  private def raiseIPAddressFormatException(message: String) =
+    throw new IPAddressFormatException(message)
+
+  private def getParseObj(obj: String,uri: String, objregex: scala.util.matching.Regex, ex: String =>String,errormsg: String): Any = {
+    objregex.findFirstIn(obj) match {
+      case Some(testObj: String) => getParse(uri.format(baseUri,testObj))
+      case None => ex(errormsg)
+    }
+  }
+
+  private def getParseDomains(d: List[String], uri: String):  Any = postParse(uri,d)
+
+  private def getParseDomain(d: String, uri: String): Any =
+    Try(getParseObj(d, uri,domainRegex,
+      raiseDomainNameFormatException,s"Domain Name $d: not properly formatted. ")) match {
+      case Success(domvar: Any) => domvar
+      case Failure(err) => Map("errorMessage" -> s"getParseDomain Error: $err" )
+    }
+
+  private def getParseIp(ip: String, uri: String):  Any =
+    Try(getParseObj(ip,uri,ipRegex,
+      raiseIPAddressFormatException,s"IP Address $ip  is not properly formatted. " )) match {
+      case Success(ipvar: Any) => ipvar
+      case Failure(err) => Map("errorMessage" -> s"getParseIP Error: $err" )
+    }
+
+  private def getParseEmail(em: String, uri: String): Any =
+    Try(getParseObj(em,uri,emailRegex,
+      raiseEmailAddressFormatException,s"Email Address $em  is not properly formatted. " )) match {
+      case Success(emailvar: Any) => emailvar
+      case Failure(err) => Map("errorMessage" -> s"getParseEmail Error: $err" )
+    }
+
+  def getDomainWhois(d: String): Map[String,Any]    =
+    Try(getParseDomain(d, uriMap("whois"))) match  {
+      case Success(Success(Some(domvar: Map[String,Any]))) => domvar
+      case Failure(domvar) => Map("Error" -> s"getDomain error $domvar")
+    }
+
+  def getDomain(d: String)         = getParseDomain(d, uriMap("whois"))
+  def domainCategorization(d: Any) = d match {
+    case v: String        => getParseDomain(v, uriMap("categorization"))
+    case g: List[String]  => getParseDomains(g,uriMap("categorization").format(baseUri,""))
+  }
+
+  def cooccourances(d: String)        = getParseDomain(d,uriMap("cooccourances"))
+  def domainWhoisEmails(em: String)   = getParseEmail(em,uriMap("whoisEmails"))
+  def domainsecurity(d: String)       = getParseDomain(d,uriMap("domainSecurity"))
+  def related(d: String)              = getParseDomain(d,uriMap("related"))
+  def domainTags(d: String)           = getParseDomain(d,uriMap("domainTags"))
+  def latest_domains(ip: String)      = getParseIp(ip,uriMap("latestDomains"))
+  def ns_whois(ns: String)            = getParse(baseUri + "/whois/nameservers/" + ns)
+  def search(query: String)           = getParse(baseUri + "/search/" + query)
   def ipRrHistory(ip: String, queryType: String)    = getParseIp(ip,uriMap("ipRRHistory"))
   def domainRrHistory(d: String, queryType: String) =  getParseDomain(d,uriMap("domainRRHistory"))
 
 }
+
