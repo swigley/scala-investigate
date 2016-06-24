@@ -59,57 +59,66 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
     }
   }
 
-  private def raiseDomainNameFormatException(message: String) =
+  private def raiseDomainNameFormatException(message: String): Any =
     throw new DomainNameFormatException(message)
 
-  private def raiseEmailAddressFormatException(message: String) =
+  private def raiseEmailAddressFormatException(message: String): Any =
     throw new EmailAddressFormatException(message)
 
-  private def raiseIPAddressFormatException(message: String) =
+  private def raiseIPAddressFormatException(message: String): Any =
     throw new IPAddressFormatException(message)
 
-  private def getParseObj(obj: String,uri: String, objregex: scala.util.matching.Regex, ex: String =>String,errormsg: String): Any = {
+  private def getParseObj(obj: String,
+                            uri: String,
+                            objregex: scala.util.matching.Regex,
+                            ex: (String) => Any ,
+                            errormsg: String): Any = {
     objregex.findFirstIn(obj) match {
       case Some(testObj: String) => getParse(uri.format(baseUri,testObj))
       case None => ex(errormsg)
     }
   }
 
-  private def getParseDomains(d: List[String], uri: String):  Any = postParse(uri,d)
-
   private def getParseDomain(d: String, uri: String): Any =
     Try(getParseObj(d, uri,domainRegex,
-      raiseDomainNameFormatException,s"Domain Name $d: not properly formatted. ")) match {
-      case Success(domvar: Any) => domvar
-      case Failure(err) => Map("errorMessage" -> s"getParseDomain Error: $err" )
+      raiseDomainNameFormatException,
+      s"Domain Name $d: not properly formatted. ")) match {
+        case Success(domvar: Any) => domvar
+        case Failure(err) =>
+            Map("errorMessage" -> s"getParseDomain Error: $err" )
     }
 
   private def getParseIp(ip: String, uri: String):  Any =
     Try(getParseObj(ip,uri,ipRegex,
-      raiseIPAddressFormatException,s"IP Address $ip  is not properly formatted. " )) match {
-      case Success(ipvar: Any) => ipvar
-      case Failure(err) => Map("errorMessage" -> s"getParseIP Error: $err" )
+      raiseIPAddressFormatException,
+      s"IP Address $ip  is not properly formatted. " )) match {
+        case Success(ipvar: Any) => ipvar
+        case Failure(err) =>
+          Map("errorMessage" -> s"getParseIP Error: $err" )
     }
 
   private def getParseEmail(em: String, uri: String): Any =
     Try(getParseObj(em,uri,emailRegex,
-      raiseEmailAddressFormatException,s"Email Address $em  is not properly formatted. " )) match {
-      case Success(emailvar: Any) => emailvar
-      case Failure(err) => Map("errorMessage" -> s"getParseEmail Error: $err" )
+      raiseEmailAddressFormatException,
+      s"Email Address $em  is not properly formatted. " )) match {
+        case Success(emailvar: Any) => emailvar
+        case Failure(err) =>
+          Map("errorMessage" -> s"getParseEmail Error: $err" )
     }
 
-  def getDomainWhois(d: String): Map[String,Any]    =
-    Try(getParseDomain(d, uriMap("whois"))) match  {
-      case Success(Success(Some(domvar: Map[String,Any]))) => domvar
-      case Failure(domvar) => Map("Error" -> s"getDomain error $domvar")
+  private def getParseDomains(d: List[String], uri: String):  Any =
+    Try(postParse(uri,d)) match {
+      case Success(domvar: Any) => domvar
+      case Failure(err) =>
+        Map("errorMessage" -> s"getParseDomains Error $err")
     }
 
-  def getDomain(d: String)         = getParseDomain(d, uriMap("whois"))
   def domainCategorization(d: Any) = d match {
     case v: String        => getParseDomain(v, uriMap("categorization"))
     case g: List[String]  => getParseDomains(g,uriMap("categorization").format(baseUri,""))
   }
 
+  def getDomain(d: String)         = getParseDomain(d, uriMap("whois"))
   def cooccourances(d: String)        = getParseDomain(d,uriMap("cooccourances"))
   def domainWhoisEmails(em: String)   = getParseEmail(em,uriMap("whoisEmails"))
   def domainsecurity(d: String)       = getParseDomain(d,uriMap("domainSecurity"))

@@ -58,31 +58,6 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
     }
   }
 
-  describe("getDomainWhois") {
-    it("returns correct attributes when queried by domain.") {
-      val cisco = Try(inv.getDomainWhois(goodDomainName))
-
-      cisco match {
-        case Success(ret: Map[String, Any]) =>
-          ret("domainName") should be("cisco.com")
-          ret("registrantPostalCode") should be("95134")
-
-      }
-
-      val tco = Try(inv.getDomainWhois("t.co"))
-      tco match {
-        case Success(ret: Map[String, Any]) =>
-          ret("domainName") should be("t.co")
-
-      }
-    }
-
-    it("returns error when incorrectly formatted domain name is input.") {
-      false
-      //TODO
-    }
-  }
-
   describe("domainCategorization") {
 
     it("returns correct category IDs when queried by domain.") {
