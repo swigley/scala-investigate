@@ -30,8 +30,8 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
     "latestDomains"   -> "%s/ips/%s/latest_domains",
     "nsWhoIs"         -> "%s/whois/nameservers/%s",
     "search"          -> "%s/search/$query",
-    "ipRRHistory"     -> "%s/dnsdb/ip/%s",
-    "domainRRHistory" -> "%s/dnsdb/name/$domainName/$queryType.json"
+    "ipRRHistory"     -> "%s/dnsdb/ip/%s/%s.json",
+    "domainRRHistory" -> "%s/dnsdb/name/%s/%s.json"
   )
   private def reqParse(uri: String,method: String="GET",data: String=""): Try[Option[Any]] = {
     var request: HttpRequest = Http(uri)
@@ -72,26 +72,35 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
                             uri: String,
                             objregex: scala.util.matching.Regex,
                             ex: (String) => Any ,
-                            errormsg: String): Any = {
+                            errormsg: String,
+                            queryType: String = ""): Any = {
+    var fullURI = ""
     objregex.findFirstIn(obj) match {
-      case Some(testObj: String) => getParse(uri.format(baseUri,testObj))
+      case Some(testObj: String) =>
+        if(queryType.length==0)
+          fullURI =  uri.format(baseUri,testObj)
+        else
+          fullURI =  uri.format(baseUri,queryType,testObj)
+        getParse(fullURI)
       case None => ex(errormsg)
     }
   }
 
-  private def getParseDomain(d: String, uri: String): Any =
+  private def getParseDomain(d: String, uri: String,queryType :String=""): Any =
     Try(getParseObj(d, uri,domainRegex,
       raiseDomainNameFormatException,
-      s"Domain Name $d: not properly formatted. ")) match {
+      s"Domain Name $d: not properly formatted. ",
+      queryType)) match {
         case Success(domvar: Any) => domvar
         case Failure(err) =>
             Map("errorMessage" -> s"getParseDomain Error: $err" )
     }
 
-  private def getParseIp(ip: String, uri: String):  Any =
+  private def getParseIp(ip: String, uri: String,queryType :String=""):  Any =
     Try(getParseObj(ip,uri,ipRegex,
       raiseIPAddressFormatException,
-      s"IP Address $ip  is not properly formatted. " )) match {
+      s"IP Address $ip  is not properly formatted. ",
+      queryType)) match {
         case Success(ipvar: Any) => ipvar
         case Failure(err) =>
           Map("errorMessage" -> s"getParseIP Error: $err" )
@@ -127,8 +136,8 @@ class openDNSInvestigate(authKey: String,proxyHost: String="",proxyPort: Int=0) 
   def latest_domains(ip: String)      = getParseIp(ip,uriMap("latestDomains"))
   def ns_whois(ns: String)            = getParse(baseUri + "/whois/nameservers/" + ns)
   def search(query: String)           = getParse(baseUri + "/search/" + query)
-  def ipRrHistory(ip: String, queryType: String)    = getParseIp(ip,uriMap("ipRRHistory"))
-  def domainRrHistory(d: String, queryType: String) =  getParseDomain(d,uriMap("domainRRHistory"))
+  def ipRrHistory(ip: String, queryType: String)    = getParseIp(ip,uriMap("ipRRHistory"),queryType)
+  def domainRrHistory(d: String, queryType: String) =  getParseDomain(d,uriMap("domainRRHistory"),queryType)
 
 }
 

@@ -11,6 +11,9 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
   val badEmail       = "name@sdfajla"
   val goodIP         = "123.123.12.13"
   val badIP          = "321.123.12"
+  val goodNameServer = "8.8.8.8"
+  val malwareDomain   = "upgamecdn.com"
+  val malwareIP       = "104.25.104.26"
 
   val inv = new openDNSInvestigate(sys.env("apiKey"))
 
@@ -19,22 +22,20 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
       val cisco = Try(inv.getDomain(goodDomainName))
       print(cisco)
       cisco match {
-        case Success(Success(Some(ret: Map[String,Any])))=>
-          ret("domainName") should be ("cisco.com")
-          ret("registrantPostalCode") should be ("95134")
+        case Success(Success(Some(ret: Map[String, Any]))) =>
+          ret("domainName") should be("cisco.com")
+          ret("registrantPostalCode") should be("95134")
 
       }
 
       val tco = Try(inv.getDomain("t.co"))
       tco match {
-        case Success(Success(Some(ret: Map[String,Any]))) =>
-          ret("domainName") should be ("t.co")
+        case Success(Success(Some(ret: Map[String, Any]))) =>
+          ret("domainName") should be("t.co")
 
       }
 
     }
-
-
     it("fails when an IP is entered instead of a domain name") {
       val IP_err = Try(inv.getDomain(goodIP))
 
@@ -179,8 +180,12 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
 
   describe("domainTags") {
     it("returns correct domain tags when queried by domain.") {
-      true
-      //TODO Finish this.
+      val domTags = Try(inv.domainTags(malwareDomain))
+      domTags match {
+        case Success(Success(Some(tags: List[String]))) =>
+          //TODO Find a domain with some tags for test
+          tags.size should be > (0)
+      }
     }
 
     it("fails when invalid domain name is input.") {
@@ -197,8 +202,12 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
   }
   describe("latestDomains") {
     it("returns latest domains when queried by ip.") {
-    true
-      //TODO
+      val domList = Try(inv.latest_domains(goodNameServer))
+      domList match {
+        case Success(Success(Some(dom: List[String]))) =>
+          //TODO Find a domain with some tags for test
+          dom.size should be > (0)
+      }
     }
 
     it("fails when invalid IP Address is input.") {
@@ -215,17 +224,28 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
   }
   describe("nsWhois") {
     it("returns domains when queried by nameserver.") {
-      true
-      //TODO
+      val domList = Try(inv.ns_whois(goodNameServer))
+      domList match {
+        case Success(Success(Some(dom: Map[String,Any]))) =>
+          //TODO Find an with some tags for test
+          dom.size should be > (0)
+      }
     }
   }
   describe("ipRrHistory") {
     it("returns resource record history when queried by IP address.") {
-      true
-      //TODO
+      val cisco = Try(inv.ipRrHistory("173.37.145.84","A"))
+
+      cisco match {
+        case Success(Success(Some(ret: Map[String, Any]))) =>
+          ret.keySet should contain ("rrs")
+          ret.keySet should contain ("features")
+          //ret("registrantPostalCode") should be("95134")
+
+      }
     }
 
-    it("fails when invalid IPN Address is input.") {
+    it("fails when invalid IP Address is input.") {
       //an [com.cisco.opendns.investigate.IPAddressFormatException] should be thrownBy(inv.ipRrHistory(badIP,"A"))
       val IP_err = Try(inv.ipRrHistory(badIP,"A"))
 
@@ -239,8 +259,14 @@ class openDNSInvestigateSpec extends FunSpec with Matchers {
   }
   describe("domainRrHistory") {
     it("returns domain resource record history when queried by domain name and resource record type.") {
-      true
-      //TODO
+      val ns = Try(inv.domainRrHistory(goodDomainName,"A"))
+
+      ns match {
+        case Success(Success(Some(ret: Map[String, Any]))) =>
+          ret.keySet should contain("rrs_tf")
+          //ret("registrantPostalCode") should be("95134")
+
+      }
     }
 
     it("fails when invalid domain name is input.") {
