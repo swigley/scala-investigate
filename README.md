@@ -4,7 +4,7 @@ Scala class to interoperate with the OpenDNS Investigate REST API
 
 **Installation**
 
-    git clone https://github.com/swigley/scala-opendnds
+    git clone https://github.com/swigley/scala-investigate
 **Build**
 
     $ cd scala-investigate
